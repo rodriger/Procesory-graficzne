@@ -1,0 +1,63 @@
+#version 330
+
+// Struktura reprezentujaca swiatlo punktowe
+struct pointLight {
+    vec3  position; // przestrzen oka
+    vec3  color;
+    float attenuation0;
+    float attenuation1;
+    float attenuation2;
+    float angle;
+};
+
+// Struktura reprezentujaca wlasnosci materialow
+struct materialProperties {
+    vec3  ambientColor;
+    vec3  diffuseColor;
+    vec3  specularColor;
+    float specularExponent;
+};
+
+
+in vec4 vVertex;
+in vec3 vNormal;
+
+out vec4 vVaryingColor;
+
+uniform mat4x4 MVPMatrix;				// Macierz model-view-projection
+uniform mat3x3 normalMatrix;			// Wektor normalny dla wierzcholka
+uniform mat4x4 MVMatrix;				// Macierz model-view
+uniform vec3 ambientLight;				// Kolor swiatla otaczajacego
+uniform pointLight light1;				// Swiatlo punktowe
+uniform materialProperties material;	// Material
+
+
+void main() {
+    gl_Position = MVPMatrix*vVertex;
+    
+	vec4 positionInEyeSpace4;
+	positionInEyeSpace4 = MVMatrix*vVertex;
+	vec3 positionInEyeSpace3;
+	positionInEyeSpace3.xyz = positionInEyeSpace4.xyz/positionInEyeSpace4.w;
+	
+	vec3 normalInEyeSpace=normalMatrix*vNormal;
+	
+	vVaryingColor.rgb = material.ambientColor; // Basic ambient color
+	vVaryingColor.a = 1.0f; // Alpha?
+	
+	vec3 eyeToLight = light1.position-positionInEyeSpace3;
+	float distance = length(eyeToLight);
+	float intensity = 1.0/(light1.attenuation0+light1.attenuation1*distance+light1.attenuation2*distance*distance);
+	vec3 direction = normalize(eyeToLight);
+	float diffuse = max(0.0, dot(normalInEyeSpace,direction));
+	
+	vVaryingColor.rgb += intensity*diffuse*material.diffuseColor*light1.color;
+	
+	if(diffuse>0.0) {
+		vec3 halfvector=normalize(direction-normalize(positionInEyeSpace3));
+		float specular=max(0.0,dot(halfvector,normalInEyeSpace));
+		float fSpecular=pow(specular,material.specularExponent);
+		vVaryingColor.rgb += intensity*fSpecular*light1.color*material.specularColor;
+	}
+
+}
